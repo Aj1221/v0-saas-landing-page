@@ -5,15 +5,39 @@ import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { createClient } from "@/lib/supabase/client"
 
 export function Waitlist() {
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle")
+  const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setStatus("loading")
-    // Simulate a request — replace with a real API/database call.
-    setTimeout(() => setStatus("done"), 1000)
+    setError(null)
+
+    const formData = new FormData(e.currentTarget)
+    const name = String(formData.get("name") ?? "").trim()
+    const email = String(formData.get("email") ?? "").trim().toLowerCase()
+    const country = String(formData.get("country") ?? "").trim()
+
+    const supabase = createClient()
+    const { error: insertError } = await supabase
+      .from("waitlist")
+      .insert({ name, email, country })
+
+    if (insertError) {
+      // 23505 is the Postgres unique_violation code (duplicate email)
+      if (insertError.code === "23505") {
+        setError("This email is already on the waitlist.")
+      } else {
+        setError("Something went wrong. Please try again.")
+      }
+      setStatus("idle")
+      return
+    }
+
+    setStatus("done")
   }
 
   return (
@@ -34,10 +58,12 @@ export function Waitlist() {
             {status === "done" ? (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
                 <CheckCircle2 className="size-12 text-primary" />
-                <h3 className="text-xl font-semibold">You&apos;re on the list!</h3>
+                <h3 className="text-xl font-semibold">
+                  Thank you for joining the waitlist.
+                </h3>
                 <p className="max-w-sm text-sm text-muted-foreground">
-                  Thanks for joining. We&apos;ll reach out as soon as
-                  PerfectTravelShot is ready in your region.
+                  We&apos;ll reach out as soon as PerfectTravelShot is ready in
+                  your region.
                 </p>
               </div>
             ) : (
@@ -70,6 +96,14 @@ export function Waitlist() {
                     required
                   />
                 </div>
+                {error ? (
+                  <p
+                    role="alert"
+                    className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive"
+                  >
+                    {error}
+                  </p>
+                ) : null}
                 <Button
                   type="submit"
                   size="lg"
