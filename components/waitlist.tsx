@@ -5,16 +5,43 @@ import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { supabase } from "@/lib/supabase"
 
 export function Waitlist() {
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle")
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setStatus("loading")
-    // Simulate a request — replace with a real API/database call.
-    setTimeout(() => setStatus("done"), 1000)
+  async function handleSubmit(
+  e: FormEvent<HTMLFormElement>
+) {
+  e.preventDefault()
+
+  setStatus("loading")
+
+  const formData = new FormData(e.currentTarget)
+
+  const name = formData.get("name") as string
+  const email = formData.get("email") as string
+  const country = formData.get("country") as string
+
+  const { error } = await supabase
+    .from("waitlist")
+    .insert([
+      {
+        name,
+        email,
+        country,
+      },
+    ])
+
+  if (error) {
+    console.error("Supabase Error:", error)
+    alert(error.message)
+    setStatus("idle")
+    return
   }
+
+  setStatus("done")
+}
 
   return (
     <section id="waitlist" className="border-t border-border/60 py-20 md:py-28">
